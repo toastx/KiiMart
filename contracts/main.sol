@@ -5,8 +5,8 @@ contract Escrow {
     struct EscrowDetails {
         address buyer;
         address seller;
-        address escrowAgent;
-        uint256 amount;
+        uint256 buyerAmount;
+        uint256 sellerAmount;
         string orderId;
         bool isConfirmedByBuyer;
         bool isConfirmedBySeller;
@@ -25,7 +25,12 @@ contract Escrow {
 
     mapping(string => EscrowDetails) public escrows;
     uint256 public constant DISPUTE_TIMEOUT = 7 days;
+    address public contractOwner;
     string[] public orderIds;
+
+    constructor() {
+        contractOwner = msg.sender;
+    }
 
     modifier onlyBuyer(string memory _orderId) {
         require(
@@ -43,10 +48,10 @@ contract Escrow {
         _;
     }
 
-    modifier onlyEscrowAgent(string memory _orderId) {
+    modifier onlyContractOwner() {
         require(
-            msg.sender == escrows[_orderId].escrowAgent,
-            "Only the escrow agent can perform this action"
+            msg.sender == contractOwner,
+            "Only the contract owner can perform this action"
         );
         _;
     }
@@ -65,13 +70,15 @@ contract Escrow {
 
     function createEscrow(
         address _seller,
-        address _escrowAgent,
+        uint256 _buyerAmount,
+        uint256 _sellerAmount,
         string memory _orderId
     ) external {
         EscrowDetails memory newEscrow;
         newEscrow.buyer = msg.sender;
         newEscrow.seller = _seller;
-        newEscrow.escrowAgent = _escrowAgent;
+        newEscrow.buyerAmount = _buyerAmount;
+        newEscrow.sellerAmount = _sellerAmount;
         newEscrow.orderId = _orderId;
         newEscrow.currentState = State.Funded;
 
@@ -81,9 +88,16 @@ contract Escrow {
 
     function deposit(
         string memory _orderId
-    ) external payable onlyBuyer(_orderId) inState(_orderId, State.Funded) {
-        require(escrows[_orderId].amount == 0, "Already funded");
-        escrows[_orderId].amount = msg.value;
+    ) external payable inState(_orderId, State.Funded) {
+        if (msg.sender == escrows[_orderId].buyer) {
+            require(msg.value == escrows[_orderId].buyerAmount, "Incorrect amount");
+            escrows[_orderId].buyerAmount = msg.value;
+        } else if (msg.sender == escrows[_orderId].seller) {
+            require(msg.value == escrows[_orderId].sellerAmount, "Incorrect amount");
+            escrows[_orderId].sellerAmount = msg.value;
+        } else {
+            revert("Only buyer or seller can deposit");
+        }
     }
 
     function confirmReceipt(string memory _orderId) external {
@@ -115,14 +129,16 @@ contract Escrow {
                 escrows[_orderId].isConfirmedBySeller,
             "Both parties must confirm"
         );
-        payable(escrows[_orderId].seller).transfer(escrows[_orderId].amount);
+        uint256 totalAmount = escrows[_orderId].buyerAmount + escrows[_orderId].sellerAmount;
+        payable(escrows[_orderId].seller).transfer(totalAmount);
         escrows[_orderId].currentState = State.Released;
     }
 
     function refund(
         string memory _orderId
-    ) external onlyEscrowAgent(_orderId) inState(_orderId, State.Funded) {
-        payable(escrows[_orderId].buyer).transfer(escrows[_orderId].amount);
+    ) external onlyContractOwner inState(_orderId, State.Funded) {
+        payable(escrows[_orderId].buyer).transfer(escrows[_orderId].buyerAmount);
+        payable(escrows[_orderId].seller).transfer(escrows[_orderId].sellerAmount);
         escrows[_orderId].currentState = State.Refunded;
     }
 
@@ -143,22 +159,31 @@ contract Escrow {
 
     function resolveDispute(
         string memory _orderId,
-        bool refundToBuyer
-    ) external onlyEscrowAgent(_orderId) inState(_orderId, State.Disputed) {
+        address faultParty
+    ) external onlyContractOwner inState(_orderId, State.Disputed) {
         require(
-            block.timestamp >=
-                escrows[_orderId].disputeTimestamp + DISPUTE_TIMEOUT,
+            block.timestamp >= escrows[_orderId].disputeTimestamp + DISPUTE_TIMEOUT,
             "Dispute timeout not reached"
         );
-        if (refundToBuyer) {
-            payable(escrows[_orderId].buyer).transfer(escrows[_orderId].amount);
-            escrows[_orderId].currentState = State.Refunded;
+
+        uint256 faultPartyAmount = faultParty == escrows[_orderId].buyer ? escrows[_orderId].buyerAmount : escrows[_orderId].sellerAmount;
+        uint256 otherPartyAmount = faultParty == escrows[_orderId].buyer ? escrows[_orderId].sellerAmount : escrows[_orderId].buyerAmount;
+
+        uint256 faultPartyRefund = (faultPartyAmount * 90) / 100;
+        uint256 otherPartyReward = (faultPartyAmount * 9) / 100;
+        uint256 fee = faultPartyAmount / 100;
+
+        payable(contractOwner).transfer(fee);
+
+        if (faultParty == escrows[_orderId].buyer) {
+            payable(escrows[_orderId].buyer).transfer(faultPartyRefund);
+            payable(escrows[_orderId].seller).transfer(otherPartyAmount + otherPartyReward);
         } else {
-            payable(escrows[_orderId].seller).transfer(
-                escrows[_orderId].amount
-            );
-            escrows[_orderId].currentState = State.Released;
+            payable(escrows[_orderId].seller).transfer(faultPartyRefund);
+            payable(escrows[_orderId].buyer).transfer(otherPartyAmount + otherPartyReward);
         }
+
+        escrows[_orderId].currentState = State.Released;
         escrows[_orderId].isDisputed = false;
     }
 
