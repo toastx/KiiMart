@@ -17,6 +17,7 @@ contract Escrow {
     }
 
     enum State {
+        Pending,
         Funded,
         Released,
         Refunded,
@@ -75,12 +76,12 @@ contract Escrow {
         string memory _orderId
     ) external {
         EscrowDetails memory newEscrow;
-        newEscrow.buyer = msg.sender;
+        newEscrow.buyer = address(0); // No buyer initially
         newEscrow.seller = _seller;
         newEscrow.buyerAmount = _buyerAmount;
         newEscrow.sellerAmount = _sellerAmount;
         newEscrow.orderId = _orderId;
-        newEscrow.currentState = State.Funded;
+        newEscrow.currentState = State.Pending;
 
         escrows[_orderId] = newEscrow;
         orderIds.push(_orderId);
@@ -88,13 +89,14 @@ contract Escrow {
 
     function deposit(
         string memory _orderId
-    ) external payable inState(_orderId, State.Funded) {
-        if (msg.sender == escrows[_orderId].buyer) {
+    ) external payable {
+        if (msg.sender == escrows[_orderId].buyer || escrows[_orderId].buyer == address(0)) {
             require(msg.value == escrows[_orderId].buyerAmount, "Incorrect amount");
-            escrows[_orderId].buyerAmount = msg.value;
+            escrows[_orderId].buyer = msg.sender;
+            escrows[_orderId].currentState = State.Pending;
         } else if (msg.sender == escrows[_orderId].seller) {
             require(msg.value == escrows[_orderId].sellerAmount, "Incorrect amount");
-            escrows[_orderId].sellerAmount = msg.value;
+            escrows[_orderId].currentState = State.Funded;
         } else {
             revert("Only buyer or seller can deposit");
         }
@@ -166,21 +168,33 @@ contract Escrow {
             "Dispute timeout not reached"
         );
 
-        uint256 faultPartyAmount = faultParty == escrows[_orderId].buyer ? escrows[_orderId].buyerAmount : escrows[_orderId].sellerAmount;
-        uint256 otherPartyAmount = faultParty == escrows[_orderId].buyer ? escrows[_orderId].sellerAmount : escrows[_orderId].buyerAmount;
-
-        uint256 faultPartyRefund = (faultPartyAmount * 90) / 100;
-        uint256 otherPartyReward = (faultPartyAmount * 9) / 100;
-        uint256 fee = faultPartyAmount / 100;
-
-        payable(contractOwner).transfer(fee);
+        uint256 buyerAmount = escrows[_orderId].buyerAmount;
+        uint256 sellerAmount = escrows[_orderId].sellerAmount;
+        uint256 fee;
+        uint256 amountToTransferToSeller;
+        uint256 amountToReturnToBuyer;
 
         if (faultParty == escrows[_orderId].buyer) {
-            payable(escrows[_orderId].buyer).transfer(faultPartyRefund);
-            payable(escrows[_orderId].seller).transfer(otherPartyAmount + otherPartyReward);
+            uint256 amountWithheld = buyerAmount - sellerAmount;
+            fee = (amountWithheld * 10) / 100;
+            amountToTransferToSeller = sellerAmount + ((amountWithheld * 90) / 100);
+            payable(contractOwner).transfer(fee);
+            payable(escrows[_orderId].seller).transfer(amountToTransferToSeller);
+            payable(escrows[_orderId].buyer).transfer(amountWithheld - fee);
+            
+        } else if (faultParty == escrows[_orderId].seller) {
+            fee = (sellerAmount * 10) / 100;
+            uint256 sellerRefund = (sellerAmount * 90) / 100;
+
+            payable(contractOwner).transfer(fee);
+            payable(escrows[_orderId].seller).transfer(sellerRefund);
+            payable(escrows[_orderId].buyer).transfer(buyerAmount);
         } else {
-            payable(escrows[_orderId].seller).transfer(faultPartyRefund);
-            payable(escrows[_orderId].buyer).transfer(otherPartyAmount + otherPartyReward);
+            amountToReturnToBuyer = buyerAmount - sellerAmount;
+            amountToTransferToSeller = sellerAmount + (buyerAmount - sellerAmount);
+
+            payable(escrows[_orderId].buyer).transfer(amountToReturnToBuyer);
+            payable(escrows[_orderId].seller).transfer(amountToTransferToSeller);
         }
 
         escrows[_orderId].currentState = State.Released;

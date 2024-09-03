@@ -1,0 +1,1 @@
+D:\hackahton\rwamarketplace\backend\target\debug\backend.exe: D:\hackahton\rwamarketplace\backend\src\contracts\contracts.rs D:\hackahton\rwamarketplace\backend\src\contracts\mod.rs D:\hackahton\rwamarketplace\backend\src\main.rs
