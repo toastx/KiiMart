@@ -2,9 +2,6 @@ mod contracts;
 use alloy::primitives::address;
 
 
-
-
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let contract = contracts::load_contract().await?;
