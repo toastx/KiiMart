@@ -68,6 +68,109 @@ pub async fn create_escrow(contract_instance: &ContractInstance<Http<Client>, Ro
     Ok(())
 }
 
+pub async fn resolve_dispute(
+    contract_instance: &ContractInstance<Http<Client>, RootProvider<Http<Client>>, Ethereum>,
+    order_id: String,
+    fault_party: Address,
+    wallet: EthereumWallet,
+) -> Result<(), Report> {
+    let _order_id = DynSolValue::from(order_id);
+    let _fault_party = DynSolValue::from(fault_party);
+    let provider = contract_instance.provider();
+    let tx = contract_instance
+        .function("resolveDispute", &[_order_id, _fault_party])
+        .unwrap()
+        .into_transaction_request()
+        .from(wallet.address())
+        .with_chain_id(123454321)
+        .gas_limit(2000000)
+        .max_fee_per_gas(100_000_000_000u64.into())
+        .max_priority_fee_per_gas(2_000_000_000u64.into())
+        .build(&wallet)
+        .await;
+
+    let signed_tx = provider.send_tx_envelope(tx.unwrap()).await;
+    println!("tx_hash: {:?}", signed_tx.unwrap().tx_hash());
+    Ok(())
+}
+
+pub async fn refund(
+    contract_instance: &ContractInstance<Http<Client>, RootProvider<Http<Client>>, Ethereum>,
+    order_id: String,
+    wallet: EthereumWallet,
+) -> Result<(), Report> {
+    let _order_id = DynSolValue::from(order_id);
+    let provider = contract_instance.provider();
+    let tx = contract_instance
+        .function("refund", &[_order_id])
+        .unwrap()
+        .into_transaction_request()
+        .from(wallet.address())
+        .with_chain_id(123454321)
+        .gas_limit(2000000)
+        .max_fee_per_gas(100_000_000_000u64.into())
+        .max_priority_fee_per_gas(2_000_000_000u64.into())
+        .build(&wallet)
+        .await;
+
+    let signed_tx = provider.send_tx_envelope(tx.unwrap()).await;
+    println!("tx_hash: {:?}", signed_tx.unwrap().tx_hash());
+    Ok(())
+}
+
+pub async fn dispute(
+    contract_instance: &ContractInstance<Http<Client>, RootProvider<Http<Client>>, Ethereum>,
+    order_id: String,
+    dispute_details: String,
+    wallet: EthereumWallet,
+) -> Result<(), Report> {
+    let _order_id = DynSolValue::from(order_id);
+    let _dispute_details = DynSolValue::from(dispute_details);
+    let provider = contract_instance.provider();
+    let tx = contract_instance
+        .function("dispute", &[_order_id, _dispute_details])
+        .unwrap()
+        .into_transaction_request()
+        .from(wallet.address())
+        .with_chain_id(123454321)
+        .gas_limit(2000000)
+        .max_fee_per_gas(100_000_000_000u64.into())
+        .max_priority_fee_per_gas(2_000_000_000u64.into())
+        .build(&wallet)
+        .await;
+
+    let signed_tx = provider.send_tx_envelope(tx.unwrap()).await;
+    println!("tx_hash: {:?}", signed_tx.unwrap().tx_hash());
+    Ok(())
+}
+
+pub async fn deposit(
+    contract_instance: &ContractInstance<Http<Client>, RootProvider<Http<Client>>, Ethereum>,
+    order_id: String,
+    value: u128, // Ether value to be deposited
+    wallet: EthereumWallet,
+) -> Result<(), Report> {
+    let _order_id = DynSolValue::from(order_id);
+    let provider = contract_instance.provider();
+    let tx = contract_instance
+        .function("deposit", &[_order_id])
+        .unwrap()
+        .into_transaction_request()
+        .from(wallet.address())
+        .value(U256::from(value)) // Adding the value to the transaction
+        .with_chain_id(123454321)
+        .gas_limit(2000000)
+        .max_fee_per_gas(100_000_000_000u64.into())
+        .max_priority_fee_per_gas(2_000_000_000u64.into())
+        .build(&wallet)
+        .await;
+
+    let signed_tx = provider.send_tx_envelope(tx.unwrap()).await;
+    println!("tx_hash: {:?}", signed_tx.unwrap().tx_hash());
+    Ok(())
+}
+
+
 pub fn generate_private_key(key:&str)-> LocalSigner<SigningKey> {
     let key = PrivateKeySigner::from_str(key).unwrap();
     key
