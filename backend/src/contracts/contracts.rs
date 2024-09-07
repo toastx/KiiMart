@@ -1,18 +1,19 @@
 use alloy::{
     contract::{ContractInstance, Interface},
-    dyn_abi::{parser::Error, DynSolValue},
+    dyn_abi:: DynSolValue,
     json_abi::JsonAbi,
-    network::{Ethereum, EthereumWallet, NetworkWallet, TransactionBuilder},
-    primitives::{address, hex, Address, U256},
+    network::{Ethereum, EthereumWallet, TransactionBuilder},
+    primitives::{address ,Address, U256},
     providers::{Provider,ProviderBuilder, RootProvider},
-    signers::{k256::{ecdsa::SigningKey, Secp256k1}, local::{LocalSigner, PrivateKeySigner}},
+    signers::{k256::ecdsa::SigningKey, local::{LocalSigner, PrivateKeySigner}},
     transports::http::{Client, Http},
 
 };
 use eyre::*;
-use serde_json::{self, Value};
+use serde_json;
 use std::{fs::File, str::FromStr};
 use std::io::Read;
+
 
 pub async fn load_contract() -> Result<ContractInstance<Http<Client>, RootProvider<Http<Client>>, Ethereum>, eyre::Error> {
 
@@ -81,7 +82,7 @@ pub async fn resolve_dispute(
         .function("resolveDispute", &[_order_id, _fault_party])
         .unwrap()
         .into_transaction_request()
-        .from(wallet.address())
+        .from(wallet.default_signer().address())
         .with_chain_id(123454321)
         .gas_limit(2000000)
         .max_fee_per_gas(100_000_000_000u64.into())
@@ -105,7 +106,7 @@ pub async fn refund(
         .function("refund", &[_order_id])
         .unwrap()
         .into_transaction_request()
-        .from(wallet.address())
+        .from(wallet.default_signer().address())
         .with_chain_id(123454321)
         .gas_limit(2000000)
         .max_fee_per_gas(100_000_000_000u64.into())
@@ -131,7 +132,7 @@ pub async fn dispute(
         .function("dispute", &[_order_id, _dispute_details])
         .unwrap()
         .into_transaction_request()
-        .from(wallet.address())
+        .from(wallet.default_signer().address())
         .with_chain_id(123454321)
         .gas_limit(2000000)
         .max_fee_per_gas(100_000_000_000u64.into())
@@ -156,7 +157,7 @@ pub async fn deposit(
         .function("deposit", &[_order_id])
         .unwrap()
         .into_transaction_request()
-        .from(wallet.address())
+        .from(wallet.default_signer().address())
         .value(U256::from(value)) // Adding the value to the transaction
         .with_chain_id(123454321)
         .gas_limit(2000000)
