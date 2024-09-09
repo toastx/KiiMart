@@ -23,12 +23,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     contracts::create_escrow(
         &contract,
-        buyer_address,
         seller,
         buyer_amount,
         seller_amount,
-        order_id,
-        wallet,
+        order_id
     )
     .await?;
     Ok(())

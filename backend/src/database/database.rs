@@ -1,13 +1,20 @@
 use serde_json::json;
-use surrealdb::engine::remote::ws::Ws;
+use surrealdb::engine::remote::ws::{Ws,Client};
 use surrealdb::opt::auth::Root;
-use surrealdb::sql;
+use surrealdb::{sql, Response};
 use surrealdb::sql::Thing;
 use surrealdb::Error;
 use surrealdb::Surreal;
+use serde::{Deserialize,Serialize};
+
+#[derive(Serialize,Deserialize)]
+pub struct  User{
+    userid: String,
+    address: String,
+}
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<Surreal<Client>, Error> {
     let db = Surreal::new::<Ws>("localhost:8000").await?;
 
     db.signin(Root {
@@ -15,61 +22,29 @@ async fn main() -> Result<(), Error> {
         password: "root",
     })
     .await?;
+    db.use_ns("kiimart").use_db("kiimart").await?;
+    Ok(db)
+}
 
-    // Select a specific namespace and database
-    db.use_ns("namespace").use_db("database").await?;
-
-    // Create a new person with a random ID
-    let tobie: Vec<Person> = db
-        .create("person")
-        .content(Person {
-            id: None,
-            title: "Founder & CEO".into(),
-            name: Name {
-                first: "Tobie".into(),
-                last: "Morgan Hitchcock".into(),
-            },
-            marketing: true,
+pub async fn add_user_data(db:Surreal<Client>,username:String,address:String) -> Result<(),Error> {
+    let user: Vec<User> = db
+        .create("user")
+        .content(User {
+            userid: username.into(),
+            address:address.into()
         })
         .await?;
-
-    // Create a new person with a specific ID
-    let mut jaime: Option<Person> = db
-        .create(("person", "jaime"))
-        .content(Person {
-            id: None,
-            title: "Founder & COO".into(),
-            name: Name {
-                first: "Jaime".into(),
-                last: "Morgan Hitchcock".into(),
-            },
-            marketing: false,
-        })
-        .await?;
-
-    // Update a person record with a specific ID
-    jaime = db
-        .update(("person", "jaime"))
-        .merge(json!({ "marketing": true }))
-        .await?;
-
-    // Select all people records
-    let people: Vec<Person> = db.select("person").await?;
-
-    // Perform a custom advanced query
-    let query = r#"
-        SELECT marketing, count()
-        FROM type::table($table)
-        GROUP BY marketing
-    "#;
-
-    let groups = db.query(sql).bind(("table", "person")).await?;
-
-    // Delete all people up to but not including Jaime
-    let people: Vec<Person> = db.delete("person").range(.."jaime").await?;
-
-    // Delete all people
-    let people: Vec<Person> = db.delete("person").await?;
-
     Ok(())
+}
+
+pub async fn fetch_user_data(db:Surreal<Client>,username:String) -> Result<Response,Error> {
+    let people: Vec<User> = db.select("person").await.expect("REASON");
+    let query = r#"
+        SELECT address
+        FROM type::table($table)
+        where userid = $userid
+    "#;
+    let user = db.query(query).bind(("table", "person")).bind(("userid", username)).await?;
+    println!("user: {:?}", user);
+    Ok(user)
 }
