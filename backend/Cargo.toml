@@ -14,4 +14,4 @@ anyhow = "1.0.87"
 surrealdb = { version = "1.5.4", features = ["kv-mem"] }
 serde = { version = "1.0.210", features = ["derive"] }
 actix-web = "4.9.0"
-reqwest = "0.12.7"
+reqwest = { version = "0.12.7", features = ["blocking", "multipart"] }

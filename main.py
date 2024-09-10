@@ -53,7 +53,8 @@ def confirm_receipt(address, order_id):
 
 
 x = create_escrow("0x104dc4c1FcA6359B9bdBf81705E34f1ba91a3958","0xF890F95047D40e59c42a3E6d5720a89EE29453cE",330,300,"fg981")
-signed_txn = web3.eth.account.sign_transaction(x, private_key=seller_private_key)
+
+signed_txn = web3.eth.account.sign_transaction(unsigned_txn, private_key=seller_private_key)
 
 txn_hash = web3.eth.send_raw_transaction(signed_txn.rawTransaction)
 
