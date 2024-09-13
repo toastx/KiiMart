@@ -3,3 +3,4 @@ build
 migrations
 target*
 .env
+node_modules

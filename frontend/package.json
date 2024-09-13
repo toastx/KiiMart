@@ -1,0 +1,33 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@chakra-ui/icons": "^2",
+    "@chakra-ui/react": "^2",
+    "@emotion/react": "^11",
+    "@emotion/styled": "^11",
+    "@web3-react/core": "^8",
+    "ethers": "^6",
+    "framer-motion": "^10",
+    "next": "13",
+    "react": "^18",
+    "react-dom": "^18",
+    "web3": "^4",
+    "pinata": "^1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.7",
+    "typescript": "^5"
+  }
+}
